@@ -1,3 +1,4 @@
+from tqdm import tqdm
 import uvicorn
 from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
@@ -87,50 +88,6 @@ def immunize_fn(init_image, mask_image):
         adv_image = recover_image(adv_image, init_image, mask_image, background=True)
         return adv_image        
 
-
-
-# @app.post("/upload")
-# async def upload_file(request: Request, file: UploadFile = File(...)):
-#     try:
-#         # Read the uploaded file as bytes
-#         contents = await file.read()
-
-#         # Process the image using PIL (you can replace this with your own processing logic)
-#         image = Image.open(BytesIO(contents))
-#         image_details = {
-#             "filename": file.filename,
-#             "content_type": file.content_type,
-#             "width": image.width,
-#             "height": image.height,
-#         }
-
-#         return JSONResponse(content=image_details, status_code=200)
-
-#     except Exception as e:
-#         return JSONResponse(content={"error": str(e)}, status_code=500)
-
-# @app.post("/upload")
-# async def upload_file(request: Request, file: UploadFile = File(...)):
-#     try:
-#         # Check if the request contains form data
-#         form_data = await request.form()
-
-#         # Read the uploaded file as bytes
-#         contents = await file.read()
-
-#         # Process the image using PIL (you can replace this with your own processing logic)
-#         image = Image.open(BytesIO(contents))
-
-#         prompt = "a man standing in a office"
-
-#         run(image, prompt, seed, guidance_scale, num_inference_steps, immunize=False)
-
-#         return {"message": "Successful"}
-    
-#     except Exception as e:
-#         return JSONResponse(content={"error": str(e)}, status_code=500)
-
-
 def generate_mask(image_size, initial_value=0):
     # Create a NumPy array for the mask
     mask = np.full(image_size, initial_value, dtype=np.uint8)
@@ -151,13 +108,8 @@ def image_to_bytes(image):
 def process_image(image, prompt, seed, guidance_scale, num_inference_steps, immunize=False):
 
     torch.manual_seed(seed)
-
-    
     init_image =  Image.fromarray(np.array(image))
     init_image = resize_and_crop(init_image, (512,512))
-   
-    # mask_image = ImageOps.invert(Image.fromarray(image['mask']).convert('RGB'))
-    # mask_image = resize_and_crop(mask_image, init_image.size)
     mask_image = generate_mask(init_image .size)
   
     
@@ -176,19 +128,13 @@ def process_image(image, prompt, seed, guidance_scale, num_inference_steps, immu
         
     image_edited = recover_image(image_edited, init_image, mask_image)
     
-    # if immunize:
-    #     # Return the immunized image
-    #     return {"immunized_image": image_to_base64(immunized_image)}
-    # else:
-    #     return {"edited_image": image_to_base64(image_edited)}
-    
     if immunize:
         # Return the immunized image
         return image_to_bytes(immunized_image)
     else:
         return image_to_bytes(image_edited)
     
-    
+### Routes ####
 
 @app.get("/")
 async def root():
@@ -234,16 +180,7 @@ async def get_processed_image():
         global processed_image_base64
 
         if processed_image_base64:
-            # # Decode base64 to image bytes
-            # image_bytes = base64.b64decode(processed_image_base64)
-
-            # # Clear the variable after returning the image
-            # processed_image_base64 = None
-
-            # # Create a StreamingResponse to return the image
-            # return StreamingResponse(io.BytesIO(image_bytes), media_type="image/jpeg")
             return StreamingResponse(BytesIO(processed_image_base64), media_type="image/jpeg")
-            # return processed_image_base64
         else:
             return JSONResponse(content={"message": "No processed image available."}, status_code=404)
 
