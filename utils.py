@@ -6,6 +6,44 @@ from torchvision.transforms import ToPILImage, ToTensor
 totensor = ToTensor()
 topil = ToPILImage()
 
+import firebase_admin
+from firebase_admin import credentials, firestore
+
+def read_firebase_db(credentials_path):
+    # Initialize Firebase Admin SDK
+    cred = credentials.Certificate(credentials_path)
+    firebase_admin.initialize_app(cred)
+
+    try:
+        # Initialize Firestore
+        db = firestore.client()
+
+        # Reference to the "stripe-webhooks" collection
+        collection_ref = db.collection("stripe-webhooks")
+
+        # Get all documents in the collection
+        docs = collection_ref.stream()
+
+        # Iterate over documents
+        for doc in docs:
+            # Access document data
+            data = doc.to_dict()
+            print(f"Document ID: {doc.id}, Data: {data}")
+
+            # Check if type is "charge.succeeded"
+            if data.get("type") == "charge.succeeded":
+                # Don't forget to close the Firebase app when done
+                firebase_admin.delete_app(firebase_admin.get_app())
+                return True
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+    # Don't forget to close the Firebase app when done
+    firebase_admin.delete_app(firebase_admin.get_app())
+    return False
+
+
 
 
 def resize_and_crop(img, size, crop_type="center"):
@@ -17,12 +55,15 @@ def resize_and_crop(img, size, crop_type="center"):
     else:
         raise ValueError
 
-    resize = list(size)
-    if size[0] is None:
-        resize[0] = img.size[0]
-    if size[1] is None:
-        resize[1] = img.size[1]
-    return ImageOps.fit(img, resize, centering=center)
+    width, height = size
+
+    # Check if width or height is None
+    if width is None:
+        width = img.size[0]
+    if height is None:
+        height = img.size[1]
+
+    return ImageOps.fit(img, (width, height), centering=center)
 
 
 def recover_image(image, init_image, mask, background=False):
